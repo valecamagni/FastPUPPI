@@ -1,6 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 from Configuration.StandardSequences.Eras import eras
 from PhysicsTools.NanoAOD.common_cff import Var, ExtVar
+from PhysicsTools.NanoAOD.simpleXYZPointFlatTableProducer_cfi import simpleXYZPointFlatTableProducer
 
 def LazyVar(expr, valtype, doc=None, precision=-1):
     return Var(expr, valtype, doc, precision, lazyEval=True)
@@ -16,7 +17,7 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1))
 process.MessageLogger.cerr.FwkReport.reportEvery = 1
 
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('file:inputs125X.root'),
+    fileNames = cms.untracked.vstring('file:inputs140X.root'),
     inputCommands = cms.untracked.vstring("keep *", 
             "drop l1tPFClusters_*_*_*",
             "drop l1tPFTracks_*_*_*",
@@ -327,6 +328,34 @@ def addTkPtCut(ptCut):
     process.extraPFStuff.add(process.l1tLayer1BarrelTkPt3, process.l1tLayer1HGCalTkPt3, process.l1tLayer1TkPt3)
     monitorPerf("L1PFTkPt3", "l1tLayer1TkPt3:PF")
     monitorPerf("L1PuppiTkPt3", "l1tLayer1TkPt3:Puppi")
+
+def addVertexes():
+
+    process.genVertexTable = simpleXYZPointFlatTableProducer.clone(
+        src = cms.InputTag("genParticles:xyz0"),
+        name= cms.string("GenVtx"),
+        doc = cms.string("Gen vertex"),
+        variables = cms.PSet(
+             x = Var("x", float, doc="gen vertex x", precision=10),
+             y = Var("y", float, doc="gen vertex y", precision=10),
+             z = Var("z", float, doc="gen vertex z", precision=16),
+        )
+    )
+
+    process.l1VertexTable = cms.EDProducer("VertexWordFlatTableProducer",
+        name = cms.string("L1Vtx"),
+        cut  = cms.string(""),
+        src = cms.InputTag("l1tVertexFinderEmulator","L1VerticesEmulation"),
+        doc = cms.string("Primary vertices reconstructed by L1T"),
+        singleton = cms.bool(False), # the number of entries is variable
+        extension = cms.bool(False), # this is the main table
+        variables = cms.PSet(
+            sumpt = Var("pt",  float,precision=10),
+            z     = Var("z0",  float,precision=16),
+        )
+    )
+
+    process.extraPFStuff.add(process.genVertexTable, process.l1VertexTable)
 
 
 def addGen(pdgs):
@@ -774,3 +803,7 @@ def saveGenCands():
                                            ),
                                       )
     process.p += process.gencandTable
+
+
+
+
