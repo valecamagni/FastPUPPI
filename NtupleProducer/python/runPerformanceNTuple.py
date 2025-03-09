@@ -403,6 +403,35 @@ def addVertexes():
     process.extraPFStuff.add(process.genVertexTable, process.l1VertexTable)
 
 
+def addGenParticles():
+
+    genPartTable = simpleGenParticleFlatTableProducer.clone(
+        src = cms.InputTag("genParticles"),
+        doc = cms.string("all gen particles"),
+        name = cms.string("GenPart"),
+        singleton = cms.bool(False),
+        extension = cms.bool(False),
+        variables = cms.PSet(
+            pt  = Var("pt",  float, precision=8),
+            eta = Var("eta", float, precision=8),
+            phi = Var("phi", float, precision=8),
+            mass = Var("mass", float, precision=8),
+            pdgId = Var("pdgId", int, doc="PDG ID of the particle"),
+            status = Var("status", int, doc="Status code"),
+            vz = Var("vz", float, precision=8, doc="Z coordinate of the vertex"),
+            charge = Var("charge", int, doc="Electric charge"),
+            prompt = Var(
+                "2*statusFlags().isPrompt() + statusFlags().isDirectPromptTauDecayProduct()",
+                int, doc="Particle promptness status"
+            ),
+            genPartIdxMother = Var("?numberOfMothers>0?motherRef(0).key():-1", "int16", doc="index of the mother particle"),
+        )
+    )
+
+    process.genPartTable = genPartTable
+    process.extraPFStuff.add(process.genPartTable)
+
+
 def addGen(pdgs):
     genLepTable = cms.EDProducer("SimpleGenParticleFlatTableProducer",
                 src = cms.InputTag("genParticles"),
@@ -852,3 +881,4 @@ def saveGenCands():
 
 addGenVisTaus()
 addGenVisTausConstituents(5)
+addGenParticles()
