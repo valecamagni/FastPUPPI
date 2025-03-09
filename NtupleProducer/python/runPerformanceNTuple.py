@@ -2,6 +2,7 @@ import FWCore.ParameterSet.Config as cms
 from Configuration.StandardSequences.Eras import eras
 from PhysicsTools.NanoAOD.common_cff import Var, ExtVar
 from PhysicsTools.NanoAOD.simpleXYZPointFlatTableProducer_cfi import simpleXYZPointFlatTableProducer
+from PhysicsTools.NanoAOD.taus_cff import *
 
 def LazyVar(expr, valtype, doc=None, precision=-1):
     return Var(expr, valtype, doc, precision, lazyEval=True)
@@ -296,6 +297,41 @@ def addJetConstituents(N):
         for var in "pt", "eta", "phi", "mass", "pdgId":
             setattr(process.l1pfjetTable.moreVariables, "dau%d_%s" % (i,var), cms.string("? numberOfDaughters() > %d ? daughter(%d).%s : -1"  % (i,i,var)))
         setattr(process.l1pfjetTable.moreVariables, "dau%d_%s" % (i,"vz"), cms.string("? numberOfDaughters() > %d ? daughter(%d).%s : -1"  % (i,i,"vertex.Z")))
+
+def addGenVisTaus():
+
+    process.tauGenJetsForNano = tauGenJets.clone(
+        GenParticles = cms.InputTag("genParticles"),
+        includeNeutrinos = False
+    )
+
+    process.tauGenJetsSelectorAllHadronsForNano = tauGenJetsSelectorAllHadrons.clone(
+        src = "tauGenJetsForNano"
+    )
+
+    process.genVisTaus = cms.EDProducer("GenVisTauProducer",
+        src = cms.InputTag("tauGenJetsSelectorAllHadronsForNano"),
+        srcGenParticles = cms.InputTag("genParticles")
+    )
+
+    process.genVisTauTable = simpleGenParticleFlatTableProducer.clone(
+        src = cms.InputTag("genVisTaus"),
+        cut = cms.string("pt > 5."),
+        name = cms.string("GenVisTaus"),
+        doc = cms.string("gen hadronic and leptonic taus"),
+        variables = cms.PSet(
+            pt = Var("pt", float,precision=8),
+            phi = Var("phi", float,precision=8),
+            eta = Var("eta", float,precision=8),
+            mass = Var("mass", float,precision=8),
+            charge = Var("charge", "int16"),
+            status = Var("status", "uint8", doc="Hadronic tau decay mode. 0=OneProng0PiZero, 1=OneProng1PiZero, 2=OneProng2PiZero, 10=ThreeProng0PiZero, 11=ThreeProng1PiZero, 15=Other"),
+            genPartIdxMother = Var("?numberOfMothers>0?motherRef(0).key():-1", "int16", doc="index of the mother particle"),
+         )
+    )
+    process.extraPFStuff.add(process.tauGenJetsForNano, process.genVisTaus, process.genVisTauTable, process.tauGenJetsSelectorAllHadronsForNano)
+
+
 
 def addGenJetFlavourTable():
     process.load("PhysicsTools.JetMCAlgos.AK4PFJetsMCFlavourInfos_cfi")
@@ -803,7 +839,5 @@ def saveGenCands():
                                            ),
                                       )
     process.p += process.gencandTable
-
-
 
 
