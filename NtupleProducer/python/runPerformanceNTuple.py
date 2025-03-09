@@ -142,7 +142,7 @@ process.l1pfjetTable = cms.EDProducer("L1PFJetTableProducer",
     minRecoPtOverGenPt = cms.double(0.1),
     jets = cms.PSet(
         Gen = cms.InputTag("ak4GenJetsNoNu"),
-        Gen_sel = cms.string("pt > 15"),
+        Gen_sel = cms.string("pt > 5"),
     ),
     moreVariables = cms.PSet(
         nDau = cms.string("numberOfDaughters()"),
