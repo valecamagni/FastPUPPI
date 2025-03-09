@@ -332,6 +332,15 @@ def addGenVisTaus():
     process.extraPFStuff.add(process.tauGenJetsForNano, process.genVisTaus, process.genVisTauTable, process.tauGenJetsSelectorAllHadronsForNano)
 
 
+def addGenVisTausConstituents(N):
+    for i in range(N):  # max N GenVisTau daughters
+        for var in ["pt", "eta", "phi", "mass", "pdgId"]:
+            setattr(process.genVisTauTable.variables,
+                    "dau{}_{}".format(i, var),
+                    Var("? daughterRefVector().size() > {} ? daughterRefVector().at({}).{} : -1".format(i, i, var),
+                        float if var != "pdgId" else "int16")
+                   )
+
 
 def addGenJetFlavourTable():
     process.load("PhysicsTools.JetMCAlgos.AK4PFJetsMCFlavourInfos_cfi")
@@ -841,3 +850,5 @@ def saveGenCands():
     process.p += process.gencandTable
 
 
+addGenVisTaus()
+addGenVisTausConstituents(5)
