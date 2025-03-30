@@ -266,6 +266,40 @@ def addSeededConeJets():
     process.l1pfjetTable.jets.scPuppiCorr = cms.InputTag('l1tSC4PFL1PuppiCorrectedEmulator')
     process.l1pfmetTable.mets.scPuppiCorrMHT = cms.InputTag("l1tSC4PFL1PuppiCorrectedEmulatorMHT")
 
+
+def addNNPuppiTaus_v2():
+
+    process.extraPFStuff.add(process.l1tNNTauProducerPuppi)
+    process.l1nnPuppiTauTable = cms.EDProducer(
+     "SimpleTriggerL1PFTauFlatTableProducer",
+        src = cms.InputTag("l1tNNTauProducerPuppi", "L1PFTausNN"),
+        cut = cms.string(""),
+        name = cms.string("L1nnPuppiTau"),
+        doc = cms.string("NN Puppi Taus"),
+        singleton = cms.bool(False),
+        variables = cms.PSet(
+            pt = Var("pt", float, precision=8),
+            eta = Var("eta", float, precision=8),
+            phi = Var("phi", float, precision=8),
+            mass = Var("mass", float, precision=8),
+            charge = Var("charge", int),
+            z0 = Var("z0", float, "vertex z0"),
+            chargedIso = Var("chargedIso", float),
+            fullIso = Var("fullIso", float),
+            id = Var("id", int),
+            passLooseNN = Var("passLooseNN", int),
+            passLoosePF = Var("passLoosePF", int),
+            passTightPF = Var("passTightPF", int),
+            passTightNN = Var("passTightNN", int),
+            passLooseNNMass = Var("passLooseNNMass", int),
+            passTightNNMass = Var("passTightNNMass", int),
+            passMass = Var("passMass", int),
+            dXY = Var("dxy", float),
+        )
+    )
+    process.extraPFStuff.add(process.l1nnPuppiTauTable)
+
+
 def addPhase1Jets():
     process.extraPFStuff.add(process.l1tPhase1JetProducer9x9, process.l1tPhase1JetCalibrator9x9, process.l1tPhase1JetSumsProducer9x9)
     process.extraPFStuff.add(process.l1tPhase1JetProducer9x9trimmed, process.l1tPhase1JetCalibrator9x9trimmed, process.l1tPhase1JetSumsProducer9x9trimmed)
@@ -401,6 +435,7 @@ def addVertexes():
     )
 
     process.extraPFStuff.add(process.genVertexTable, process.l1VertexTable)
+
 
 
 def addGenParticles():
@@ -879,6 +914,3 @@ def saveGenCands():
     process.p += process.gencandTable
 
 
-addGenVisTaus()
-addGenVisTausConstituents(5)
-addGenParticles()
