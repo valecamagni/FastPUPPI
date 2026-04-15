@@ -1,6 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 from Configuration.StandardSequences.Eras import eras
 from PhysicsTools.NanoAOD.common_cff import Var, ExtVar
+from PhysicsTools.NanoAOD.simpleXYZPointFlatTableProducer_cfi import simpleXYZPointFlatTableProducer
+from PhysicsTools.NanoAOD.taus_cff import *
 
 def LazyVar(expr, valtype, doc=None, precision=-1):
     return Var(expr, valtype, doc, precision, lazyEval=True)
@@ -16,7 +18,7 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1))
 process.MessageLogger.cerr.FwkReport.reportEvery = 1
 
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('file:inputs125X.root'),
+    fileNames = cms.untracked.vstring("root://eoscms.cern.ch//eos/cms/store/cmst3/group/l1tr/vcamagni/L1TauID/DATA/FPinputs/m20/4STEPS/142Xv0/inputs140X_7099344_3054.root"),
     inputCommands = cms.untracked.vstring("keep *", 
             "drop l1tPFClusters_*_*_*",
             "drop l1tPFTracks_*_*_*",
@@ -58,11 +60,19 @@ process.l1tNNTauProducerPuppi = l1tNNTauProducerPuppi.clone()
 from L1Trigger.Phase2L1ParticleFlow.l1tMETPFProducer_cfi import l1tMETPFProducer
 process.l1tMETPFProducer = l1tMETPFProducer.clone()
 
+from L1Trigger.Phase2L1GMT.gmtTkMuons_cfi import gmtTkMuons
+process.l1tTkMuonsGmt = gmtTkMuons.clone(
+    srcStubs  = cms.InputTag("l1tStubsGmt","tps"),
+)
+
+from L1Trigger.Phase2L1ParticleFlow.L1NNTauProducer_cff import l1tNNTauProducerPuppi
+process.l1tNNTauProducerPuppi = l1tNNTauProducerPuppi.clone()
 
 process.extraPFStuff = cms.Task(
         process.l1tPhase2L1CaloEGammaEmulator,
         process.l1tPhase2CaloPFClusterEmulator,
         process.l1tPhase2GCTBarrelToCorrelatorLayer1Emulator,
+        process.l1tTkMuonsGmt,
         process.l1tSAMuonsGmt,
         process.l1tGTTInputProducer,
         process.l1tTrackSelectionProducer,
@@ -221,6 +231,7 @@ def respOnly():
     process.p.remove(process.l1pfmetTable)
     process.p.remove(process.l1pfmetCentralTable)
     process.end.remove(process.outnano)
+
 def noResp():
     process.p.remove(process.ntuple)
 
@@ -376,6 +387,8 @@ def addLHEPart():
     )
     process.extraPFStuff.add(process.lheInfoTable)
 
+
+##### STO PRENDENDO SOLO I GENELE E GENMU DA TAU
 def addGen(pdgs):
     genLepTable = cms.EDProducer("SimpleGenParticleFlatTableProducer",
                 src = cms.InputTag("genParticles"),
@@ -397,7 +410,7 @@ def addGen(pdgs):
     for pdgId in pdgs:
         if pdgId == 13:
             process.genMuTable = genLepTable.clone(
-                        cut  = cms.string("abs(pdgId) == %d && status == 1 && pt > 2" % pdgId),
+                        cut  = cms.string("abs(pdgId) == %d && status == 1 && pt > 2 && statusFlags().isDirectPromptTauDecayProduct()" % pdgId),
                         name = cms.string("GenMu"))
             process.genMuExtTable = genLepTableExt.clone(
                         cut = process.genMuTable.cut,
@@ -406,7 +419,7 @@ def addGen(pdgs):
             process.extraPFStuff.add(process.genMuTable, process.genMuExtTable)
         elif pdgId == 11:
             process.genElTable = genLepTable.clone(
-                        cut  = cms.string("abs(pdgId) == %d && status == 1 && pt > 2" % pdgId),
+                        cut  = cms.string("abs(pdgId) == %d && status == 1 && pt > 2 && statusFlags().isDirectPromptTauDecayProduct()" % pdgId),
                         name = cms.string("GenEl"))
             process.genElExtTable = genLepTableExt.clone(
                         cut = process.genElTable.cut,
@@ -456,6 +469,88 @@ def addStaMu():
                         )
     )
     process.extraPFStuff.add(process.staMuTable)
+
+
+def addTkMu():
+    process.tkMuTable = cms.EDProducer("SimpleCandidateFlatTableProducer",
+        src = cms.InputTag("l1tTkMuonsGmt"),
+        cut = cms.string(""),
+        name = cms.string("TkMu"),
+        doc = cms.string("TrackerMuons from GMT"),
+        singleton = cms.bool(False),
+        extension = cms.bool(False),
+        variables = cms.PSet(
+            pt        = LazyVar("phPt()",  float),
+            eta       = LazyVar("phEta()", float),
+            phi       = LazyVar("phPhi()", float),
+            mass      = LazyVar("0.10566", float),
+            z0        = LazyVar("phZ0()",  float, doc="Z coordinate of the reconstructed production vertex"),
+            dxy       = LazyVar("phD0()",  float, doc="transverse impact parameter"),
+            charge    = LazyVar("phCharge()", int, doc="charge"),
+            quality   = LazyVar("hwQual()", int, doc="quality (TBD)"),
+            hwPt      = LazyVar("hwPt()", int),
+            hwEta     = LazyVar("hwEta()", int),
+            hwPhi     = LazyVar("hwPhi()", int),
+            hwZ0      = LazyVar("hwZ0()", int),
+            hwD0      = LazyVar("hwD0()", int),
+            hwCharge  = LazyVar("hwCharge()", int),
+            hwIsoSum  = LazyVar("hwIsoSum()", int),
+            hwIsoSumAp= LazyVar("hwIsoSumAp()", int)
+        )
+    )
+    process.extraPFStuff.add(process.tkMuTable)
+
+
+
+def addNNPuppiTaus_v2():
+
+    process.extraPFStuff.add(process.l1tNNTauProducerPuppi)
+
+    process.l1nnPuppiTauTable = cms.EDProducer(
+        "SimpleTriggerL1PFTauFlatTableProducer",
+        src = cms.InputTag("l1tNNTauProducerPuppi", "L1PFTausNN"),
+        cut = cms.string(""),
+        name = cms.string("L1nnPuppiTaus"),
+        doc = cms.string("NN Puppi Taus"),
+        singleton = cms.bool(False),
+        variables = cms.PSet(
+            pt = Var("pt", float, precision=8),
+            eta = Var("eta", float, precision=8),
+            phi = Var("phi", float, precision=8),
+            mass = Var("mass", float, precision=8),
+            charge = Var("charge", int),
+            z0 = Var("z0", float),
+            chargedIso = Var("chargedIso", float),
+            fullIso = Var("fullIso", float),
+            id = Var("id", int),
+            passLooseNN = Var("passLooseNN", int),
+            passLoosePF = Var("passLoosePF", int),
+            passTightPF = Var("passTightPF", int),
+            passTightNN = Var("passTightNN", int),
+            passLooseNNMass = Var("passLooseNNMass", int),
+            passTightNNMass = Var("passTightNNMass", int),
+            passMass = Var("passMass", int),
+            dXY = Var("dxy", float),
+        )
+    )
+
+        # -------- ADD PF CONSTITUENTS INDICES ----------
+    MAX_CONSTITUENTS = 16
+
+    for i in range(MAX_CONSTITUENTS):
+        setattr(
+            process.l1nnPuppiTauTable.variables,
+            f"pfIdx{i}",
+            Var(
+                f"? pfConstituents().size() > {i} ? pfConstituents().at({i}) : -1",
+                int,
+                doc=f"index of PF candidate {i} forming the tau"
+            )
+        )
+
+    process.extraPFStuff.add(process.l1nnPuppiTauTable)
+
+
 
 
 def addHGCalTPs():
@@ -682,6 +777,81 @@ def addTkEG(doL1=False, doL2=True, postfix=""):
         process.extraPFStuff.add(tkEmTable,tkEleTable)
 
 
+def addVertexes():
+
+    process.genVertexTable = simpleXYZPointFlatTableProducer.clone(
+        src = cms.InputTag("genParticles:xyz0"),
+        name= cms.string("GenVtx"),
+        doc = cms.string("Gen vertex"),
+        variables = cms.PSet(
+             x = Var("x", float, doc="gen vertex x", precision=10),
+             y = Var("y", float, doc="gen vertex y", precision=10),
+             z = Var("z", float, doc="gen vertex z", precision=16),
+        )
+    )
+
+    process.l1VertexTable = cms.EDProducer("VertexWordFlatTableProducer",
+        name = cms.string("L1Vtx"),
+        cut  = cms.string(""),
+        src = cms.InputTag("l1tVertexFinderEmulator","L1VerticesEmulation"),
+        doc = cms.string("Primary vertices reconstructed by L1T"),
+        singleton = cms.bool(False), # the number of entries is variable
+        extension = cms.bool(False), # this is the main table
+        variables = cms.PSet(
+            sumpt = Var("pt",  float,precision=10),
+            z     = Var("z0",  float,precision=16),
+        )
+    )
+
+    process.extraPFStuff.add(process.genVertexTable, process.l1VertexTable)
+
+
+
+def addGenVisTaus():
+
+    process.tauGenJetsForNano = tauGenJets.clone(
+        GenParticles = cms.InputTag("genParticles"),
+        includeNeutrinos = False
+    )
+
+    process.tauGenJetsSelectorAllHadronsForNano = tauGenJetsSelectorAllHadrons.clone(
+        src = "tauGenJetsForNano"
+    )
+
+    process.genVisTaus = cms.EDProducer("GenVisTauProducer",
+        src = cms.InputTag("tauGenJetsSelectorAllHadronsForNano"),
+        srcGenParticles = cms.InputTag("genParticles")
+    )
+
+    process.genVisTauTable = simpleGenParticleFlatTableProducer.clone(
+        src = cms.InputTag("genVisTaus"),
+        cut = cms.string("pt > 5."),
+        name = cms.string("GenVisTaus"),
+        doc = cms.string("gen hadronic and leptonic taus"),
+        variables = cms.PSet(
+            pt = Var("pt", float,precision=8),
+            phi = Var("phi", float,precision=8),
+            eta = Var("eta", float,precision=8),
+            mass = Var("mass", float,precision=8),
+            charge = Var("charge", "int16"),
+            vz = Var("vz", float, precision=8),
+            status = Var("status", "uint8", doc="Hadronic tau decay mode. 0=OneProng0PiZero, 1=OneProng1PiZero, 2=OneProng2PiZero, 10=ThreeProng0PiZero, 11=ThreeProng1PiZero, 15=Other"),
+            genPartIdxMother = Var("?numberOfMothers>0?motherRef(0).key():-1", "int16", doc="index of the mother particle"),
+         )
+    )
+    process.extraPFStuff.add(process.tauGenJetsForNano, process.genVisTaus, process.genVisTauTable, process.tauGenJetsSelectorAllHadronsForNano)
+
+
+def addGenVisTausConstituents(N):
+    for i in range(N):  # max N GenVisTau daughters
+        for var in ["pt", "eta", "phi", "mass", "pdgId", "vz"]:
+            setattr(process.genVisTauTable.variables,
+                    "dau{}_{}".format(i, var),
+                    Var("? daughterRefVector().size() > {} ? daughterRefVector().at({}).{} : -1".format(i, i, var),
+                        float if var != "pdgId" else "int16")
+                   )
+
+
 def addDecodedTk(regs=['HGCal','Barrel']):        
     for reg in regs:
         decTkTable = cms.EDProducer("SimpleCandidateFlatTableProducer",
@@ -881,3 +1051,7 @@ def saveGenCands():
                                            ),
                                       )
     process.p += process.gencandTable
+
+
+
+addTkMu()
